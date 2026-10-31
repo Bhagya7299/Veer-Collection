@@ -1,0 +1,14 @@
+{
+  "name": "veer-collection",
+  "version": "1.0.0",
+  "description": "Veer Collection - Premium Garment & Apparel Store",
+  "main": "backend/server.js",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build && cd ../backend && npm install",
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js"
+  },
+  "keywords": ["ecommerce", "fashion", "garments"],
+  "author": "",
+  "license": "ISC"
+}
