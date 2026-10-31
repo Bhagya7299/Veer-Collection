@@ -1,17 +1,28 @@
 import React, { useState } from 'react';
-import { X, Trash2, CreditCard, ShoppingBag, Truck, CheckCircle, ArrowLeft } from 'lucide-react';
+import { X, Trash2, CreditCard, ShoppingBag, Truck, CheckCircle, ArrowLeft, Wallet, Gift, Sparkles } from 'lucide-react';
 
-export default function Cart({ isOpen, onClose, cartItems, onUpdateQuantity, onRemoveItem, onClearCart, API_BASE_URL }) {
+export default function Cart({ isOpen, onClose, cartItems, onUpdateQuantity, onRemoveItem, onClearCart, API_BASE_URL, currentUser, walletBalance = 0, onOrderSuccessCallback }) {
   const [checkoutMode, setCheckoutMode] = useState(false);
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerName, setCustomerName] = useState(currentUser?.name || '');
+  const [customerPhone, setCustomerPhone] = useState(currentUser?.phone || '');
   const [customerAddress, setCustomerAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('COD'); // COD or UPI
   const [paymentRef, setPaymentRef] = useState('');
+  const [useWallet, setUseWallet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
+  const [earnedCashback, setEarnedCashback] = useState(0);
+
+  React.useEffect(() => {
+    if (currentUser) {
+      if (currentUser.name) setCustomerName(currentUser.name);
+      if (currentUser.phone) setCustomerPhone(currentUser.phone);
+    }
+  }, [currentUser]);
 
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const walletDiscount = (useWallet && walletBalance > 0) ? Math.min(walletBalance, subtotal) : 0;
+  const finalPayable = Math.max(0, subtotal - walletDiscount);
 
   const handleSubmitOrder = async (e) => {
     e.preventDefault();
@@ -36,8 +47,11 @@ export default function Cart({ isOpen, onClose, cartItems, onUpdateQuantity, onR
           customerName,
           customerPhone,
           customerAddress,
+          customerEmail: currentUser?.email || null,
+          userId: currentUser?.id || null,
           paymentMethod,
-          totalAmount: subtotal,
+          totalAmount: finalPayable,
+          walletUsed: walletDiscount,
           items: cartItems,
           paymentRef: paymentMethod === 'UPI' ? paymentRef : null
         })
@@ -50,6 +64,10 @@ export default function Cart({ isOpen, onClose, cartItems, onUpdateQuantity, onR
       }
 
       setOrderSuccess(data.orderId);
+      setEarnedCashback(data.cashbackEarned || 0);
+      if (onOrderSuccessCallback) {
+        onOrderSuccessCallback();
+      }
       onClearCart();
     } catch (error) {
       alert(error.message);
@@ -100,6 +118,12 @@ export default function Cart({ isOpen, onClose, cartItems, onUpdateQuantity, onR
               <div><strong>Order ID:</strong> #{orderSuccess}</div>
               <div style={{ marginTop: '0.5rem' }}><strong>Method:</strong> {paymentMethod === 'COD' ? 'Cash on Delivery' : 'Online Payment (UPI)'}</div>
               <div style={{ marginTop: '0.5rem' }}><strong>Status:</strong> {paymentMethod === 'COD' ? 'Pending Confirmation' : 'Verification Pending'}</div>
+              {earnedCashback > 0 && (
+                <div style={{ marginTop: '0.8rem', paddingTop: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.08)', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+                  <Gift size={18} />
+                  <span>🎉 Earned ₹{earnedCashback} Cashback in Veer Wallet!</span>
+                </div>
+              )}
             </div>
             <button className="btn-primary" onClick={handleClose} style={{ marginTop: '2rem', width: '100%', justifyContent: 'center' }}>
               Continue Shopping
@@ -154,7 +178,57 @@ export default function Cart({ isOpen, onClose, cartItems, onUpdateQuantity, onR
                   />
                 </div>
 
-                <div className="form-group" style={{ marginTop: '2rem' }}>
+                {/* Veer Cashback Wallet Option */}
+                {currentUser && walletBalance > 0 && (
+                  <div style={{
+                    marginTop: '1.25rem',
+                    padding: '0.85rem 1rem',
+                    background: useWallet ? 'rgba(212, 175, 55, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                    border: useWallet ? '1px solid var(--accent-gold)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    transition: 'all 0.2s ease'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '50%',
+                        background: 'rgba(212, 175, 55, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--accent-gold)'
+                      }}>
+                        <Wallet size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                          Veer Cashback Wallet
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--accent-gold)' }}>
+                          Balance: ₹{walletBalance.toLocaleString('en-IN')}
+                        </div>
+                      </div>
+                    </div>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', cursor: 'pointer', userSelect: 'none' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={useWallet} 
+                        onChange={(e) => setUseWallet(e.target.checked)}
+                        style={{ width: '16px', height: '16px', accentColor: 'var(--accent-gold)', cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: useWallet ? 'var(--accent-gold)' : 'var(--text-muted)' }}>
+                        {useWallet ? `-₹${walletDiscount}` : 'Apply'}
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                <div className="form-group" style={{ marginTop: '1.5rem' }}>
                   <label>Select Payment Method</label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <button
@@ -201,23 +275,23 @@ export default function Cart({ isOpen, onClose, cartItems, onUpdateQuantity, onR
                     <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
                       <span className="badge badge-gold">Scan QR Code to Pay</span>
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                        Scan the shop owner's UPI QR below to transfer ₹{subtotal.toLocaleString('en-IN')}:
+                        Scan the shop owner's UPI QR below to transfer ₹{finalPayable.toLocaleString('en-IN')}:
                       </p>
                     </div>
 
                     {/* Generate custom QR API based on UPI address */}
                     <div className="qr-container">
                       <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=veercollection@upi&pn=Veer%20Collection&am=${subtotal}&cu=INR`)}`} 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=veergarments@upi&pn=Veer%20Garments&am=${finalPayable}&cu=INR`)}`} 
                         alt="UPI Payment QR Code" 
                         className="qr-code"
                       />
                     </div>
 
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '0.25rem', margin: '1rem 0' }}>
-                      <div><strong>UPI ID:</strong> veercollection@upi</div>
-                      <div><strong>Payee Name:</strong> Veer Collection</div>
-                      <div><strong>Amount:</strong> ₹{subtotal.toLocaleString('en-IN')}</div>
+                      <div><strong>UPI ID:</strong> veergarments@upi</div>
+                      <div><strong>Payee Name:</strong> Veer Garments</div>
+                      <div><strong>Amount:</strong> ₹{finalPayable.toLocaleString('en-IN')}</div>
                     </div>
 
                     <div className="form-group" style={{ marginBottom: 0 }}>
@@ -238,9 +312,24 @@ export default function Cart({ isOpen, onClose, cartItems, onUpdateQuantity, onR
 
             {/* Sticky Checkout Summary Footer */}
             <div className="cart-footer">
-              <div className="cart-summary-row">
-                <span>Total Amount:</span>
-                <span className="cart-total-price">₹{subtotal.toLocaleString('en-IN')}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  <span>Subtotal:</span>
+                  <span>₹{subtotal.toLocaleString('en-IN')}</span>
+                </div>
+                {walletDiscount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--accent-gold)', fontWeight: 600 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Wallet size={14} /> Wallet Cashback:</span>
+                    <span>-₹{walletDiscount.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.4rem', marginTop: '0.2rem' }}>
+                  <span>Final Payable:</span>
+                  <span className="cart-total-price">₹{finalPayable.toLocaleString('en-IN')}</span>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#4ade80', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <Sparkles size={12} /> Earn ₹{Math.round(finalPayable * 0.05)} (5%) cashback on this order!
+                </div>
               </div>
               <button 
                 type="submit" 
@@ -249,7 +338,7 @@ export default function Cart({ isOpen, onClose, cartItems, onUpdateQuantity, onR
                 className="btn-primary" 
                 style={{ width: '100%', justifyContent: 'center' }}
               >
-                {isSubmitting ? 'Processing Order...' : paymentMethod === 'COD' ? 'Confirm Cash on Delivery' : 'Submit UPI Payment & Order'}
+                {isSubmitting ? 'Processing Order...' : paymentMethod === 'COD' ? `Confirm COD (₹${finalPayable.toLocaleString('en-IN')})` : `Submit UPI Payment (₹${finalPayable.toLocaleString('en-IN')})`}
               </button>
             </div>
           </div>

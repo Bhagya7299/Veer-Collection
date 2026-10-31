@@ -1,7 +1,7 @@
 {
-  "name": "veer-collection",
+  "name": "veer-garments",
   "version": "1.0.0",
-  "description": "Veer Collection - Premium Garment & Apparel Store",
+  "description": "Veer Garments - Premium Garment & Apparel Store",
   "main": "backend/server.js",
   "scripts": {
     "build": "cd frontend && npm install && npm run build && cd ../backend && npm install",

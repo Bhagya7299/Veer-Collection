@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Package, Edit, Trash2, ShoppingBag, DollarSign, List, Layers, Shield, RefreshCw } from 'lucide-react';
+import { Plus, Package, Edit, Trash2, ShoppingBag, DollarSign, List, Layers, Shield, RefreshCw, Wallet, Check, X } from 'lucide-react';
 
-export default function AdminPanel({ products, orders, onRefreshData, API_BASE_URL }) {
+export default function AdminPanel({ products, orders, onRefreshData, API_BASE_URL, onBackToStore }) {
   const [adminPassword, setAdminPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  const [activeTab, setActiveTab] = useState('stock'); // stock, products, orders
+  const [activeTab, setActiveTab] = useState('stock'); // stock, products, orders, wallet
+
+  // Top-Up verification requests state
+  const [walletRequests, setWalletRequests] = useState([]);
+  const [loadingWalletRequests, setLoadingWalletRequests] = useState(false);
 
   // Form states for adding/editing product
   const [editProductId, setEditProductId] = useState(null);
   const [prodName, setProdName] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodPrice, setProdPrice] = useState('');
-  const [prodCategory, setProdCategory] = useState('Shirts');
+  const [prodCategory, setProdCategory] = useState('Upper Wear');
   const [prodImage, setProdImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   
@@ -29,8 +33,64 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
     if (storedPass === 'admin123') {
       setIsAuthenticated(true);
       setAdminPassword('admin123');
+      fetchWalletRequests('admin123');
     }
   }, []);
+
+  const fetchWalletRequests = async (pass) => {
+    setLoadingWalletRequests(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/wallet-requests`, {
+        headers: { 'x-admin-password': pass || adminPassword || 'admin123' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWalletRequests(data);
+      }
+    } catch (err) {
+      console.error('Failed to load wallet requests:', err);
+    } finally {
+      setLoadingWalletRequests(false);
+    }
+  };
+
+  const handleApproveTopup = async (id) => {
+    if (!window.confirm('Have you verified receipt of this payment in your UPI / Bank account?')) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/wallet-requests/${id}/approve`, {
+        method: 'POST',
+        headers: { 'x-admin-password': adminPassword || 'admin123' }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to approve');
+      alert(data.message || 'Approved & credited!');
+      fetchWalletRequests();
+      if (onRefreshData) onRefreshData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleRejectTopup = async (id) => {
+    const reason = window.prompt('Reason for rejection:', 'Payment not received in bank account / Invalid UTR');
+    if (!reason) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/wallet-requests/${id}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-password': adminPassword || 'admin123'
+        },
+        body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reject');
+      alert(data.message || 'Rejected');
+      fetchWalletRequests();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -38,6 +98,7 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
       setIsAuthenticated(true);
       sessionStorage.setItem('admin_pass', 'admin123');
       setAuthError('');
+      fetchWalletRequests('admin123');
     } else {
       setAuthError('Incorrect Password. Please try again.');
     }
@@ -159,7 +220,7 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
     setProdName('');
     setProdDesc('');
     setProdPrice('');
-    setProdCategory('Shirts');
+    setProdCategory('Upper Wear');
     setProdImage(null);
     setPreviewUrl('');
     setVariations([]);
@@ -297,6 +358,17 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
             <button type="submit" className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
               Authenticate
             </button>
+
+            {onBackToStore && (
+              <button 
+                type="button" 
+                onClick={onBackToStore} 
+                className="btn-secondary" 
+                style={{ width: '100%', marginTop: '0.75rem', justifyContent: 'center', background: 'transparent', border: '1px solid rgba(255,255,255,0.18)' }}
+              >
+                Return to Store
+              </button>
+            )}
           </form>
         </div>
       </div>
@@ -342,12 +414,28 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
         </button>
 
         <button 
-          onClick={handleLogout} 
+          onClick={() => { setActiveTab('wallet'); fetchWalletRequests(); }} 
+          className={`admin-menu-item ${activeTab === 'wallet' ? 'active' : ''}`}
+        >
+          <Wallet size={18} />
+          <span>Wallet Top-Ups</span>
+          {walletRequests.filter(r => r.status === 'Pending').length > 0 && (
+            <span style={{ marginLeft: 'auto', background: 'var(--accent-gold)', color: '#000', fontSize: '0.7rem', fontWeight: 700, padding: '0.1rem 0.4rem', borderRadius: '10px' }}>
+              {walletRequests.filter(r => r.status === 'Pending').length}
+            </span>
+          )}
+        </button>
+
+        <button 
+          onClick={() => {
+            handleLogout();
+            if (onBackToStore) onBackToStore();
+          }} 
           className="admin-menu-item" 
           style={{ marginTop: '5rem', color: '#e74c3c' }}
         >
           <Shield size={18} />
-          <span>Exit Dashboard</span>
+          <span>Exit to Store</span>
         </button>
       </aside>
 
@@ -519,15 +607,15 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
 
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Category</label>
+                      <label>Section / Category</label>
                       <select 
                         value={prodCategory} 
                         onChange={(e) => setProdCategory(e.target.value)} 
                         className="form-control"
                       >
-                        <option value="Shirts">Shirts</option>
-                        <option value="T-Shirts">T-Shirts</option>
-                        <option value="Pants">Pants</option>
+                        <option value="Upper Wear">Upper Wear (Shirts, T-Shirts, Polo, Down Shoulders)</option>
+                        <option value="Bottom Wear">Bottom Wear (Pants, Lowers, Bootcut, Baggie, Formal Trousers)</option>
+                        <option value="Under Garments">Under Garments (Underwear, Vests, Socks, Hankey)</option>
                         <option value="Others">Others</option>
                       </select>
                     </div>
@@ -798,6 +886,145 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
                               <option value="Pending">Pending</option>
                               <option value="Paid">Paid</option>
                             </select>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Wallet Requests Tab */}
+        {activeTab === 'wallet' && (
+          <div className="admin-content-card">
+            <div className="admin-card-header">
+              <div>
+                <h3 className="font-serif">Customer Wallet Top-Up Requests</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  Verify real UPI payment receipt in your bank/PhonePe before approving wallet credits.
+                </p>
+              </div>
+              <button onClick={() => fetchWalletRequests()} className="btn-secondary" style={{ padding: '0.5rem 1rem' }}>
+                <RefreshCw size={16} /> Refresh Requests
+              </button>
+            </div>
+
+            <div style={{ padding: '1.5rem' }}>
+              <div className="table-responsive">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Req ID</th>
+                      <th>Customer Name</th>
+                      <th>Customer Email</th>
+                      <th>Amount</th>
+                      <th>Method</th>
+                      <th>UPI Ref / UTR</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingWalletRequests ? (
+                      <tr>
+                        <td colSpan="9" style={{ textAlign: 'center', padding: '2rem' }}>
+                          Loading top-up requests...
+                        </td>
+                      </tr>
+                    ) : walletRequests.length === 0 ? (
+                      <tr>
+                        <td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                          No wallet top-up requests found.
+                        </td>
+                      </tr>
+                    ) : (
+                      walletRequests.map((req) => (
+                        <tr key={req.id}>
+                          <td><strong>#{req.id}</strong></td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <div style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '50%',
+                                background: 'rgba(212,175,55,0.15)',
+                                border: '1px solid var(--accent-gold)',
+                                color: 'var(--accent-gold)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                flexShrink: 0
+                              }}>
+                                {(req.customer_name || req.email || 'U').charAt(0).toUpperCase()}
+                              </div>
+                              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                                {req.customer_name || 'Customer'}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{req.email}</span>
+                          </td>
+                          <td>
+                            <strong style={{ color: 'var(--accent-gold)', fontSize: '1rem' }}>
+                              ₹{req.amount.toLocaleString('en-IN')}
+                            </strong>
+                          </td>
+                          <td>{req.payment_method}</td>
+                          <td>
+                            <code style={{ background: 'rgba(255,255,255,0.08)', padding: '3px 8px', borderRadius: '4px', fontSize: '0.85rem', color: 'var(--accent-gold)' }}>
+                              {req.payment_ref}
+                            </code>
+                          </td>
+                          <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            {new Date(req.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td>
+                            <span style={{
+                              padding: '3px 10px',
+                              borderRadius: '100px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              background: req.status === 'Approved' ? 'rgba(74, 222, 128, 0.15)' : req.status === 'Rejected' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(212, 175, 55, 0.15)',
+                              color: req.status === 'Approved' ? '#4ade80' : req.status === 'Rejected' ? '#ef4444' : 'var(--accent-gold)',
+                              border: `1px solid ${req.status === 'Approved' ? '#4ade80' : req.status === 'Rejected' ? '#ef4444' : 'var(--accent-gold)'}`
+                            }}>
+                              {req.status}
+                            </span>
+                            {req.admin_notes && (
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                {req.admin_notes}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {req.status === 'Pending' ? (
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                  onClick={() => handleApproveTopup(req.id)}
+                                  className="btn-primary"
+                                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', background: '#2ecc71', borderColor: '#2ecc71' }}
+                                  title="Confirm payment received in bank and credit wallet"
+                                >
+                                  <Check size={14} /> Approve & Credit
+                                </button>
+                                <button
+                                  onClick={() => handleRejectTopup(req.id)}
+                                  className="btn-secondary"
+                                  style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem', color: '#e74c3c', borderColor: 'rgba(231,76,60,0.4)' }}
+                                  title="Reject fake/unverified payment"
+                                >
+                                  <X size={14} /> Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Resolved</span>
+                            )}
                           </td>
                         </tr>
                       ))
