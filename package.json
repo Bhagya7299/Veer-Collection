@@ -4,7 +4,8 @@
   "description": "Veer Garments - Premium Garment & Apparel Store",
   "main": "backend/server.js",
   "scripts": {
-    "build": "cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install",
+    "build": "cd backend && npm install",
+    "build:all": "npm --prefix frontend install --include=dev && npm --prefix frontend run build && npm --prefix backend install",
     "start": "node backend/server.js",
     "dev": "node backend/server.js"
   },
