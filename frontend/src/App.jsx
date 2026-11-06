@@ -31,7 +31,7 @@ import LoginPage from './components/LoginPage';
 import AddMoneyModal from './components/AddMoneyModal';
 
 const API_BASE_URL = typeof window !== 'undefined' && (window.location.port === '5174' || window.location.port === '5173')
-  ? 'http://localhost:5001'
+  ? `http://${window.location.hostname}:5001`
   : '';
 
 // Isolated localStorage key per user account

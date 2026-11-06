@@ -169,12 +169,46 @@ export default function CustomerView({ products, onAddToCart, API_BASE_URL, open
     }
   };
 
-  // Ensure initial video autoplays smoothly on mount
+  // Ensure initial video autoplays smoothly on mount across all mobile & desktop browsers
   useEffect(() => {
-    if (video0Ref.current) {
-      video0Ref.current.muted = true;
-      video0Ref.current.play().catch(() => {});
-    }
+    const v0 = video0Ref.current;
+    const v1 = video1Ref.current;
+
+    [v0, v1].forEach(v => {
+      if (v) {
+        v.muted = true;
+        v.defaultMuted = true;
+        v.setAttribute('muted', '');
+        v.setAttribute('playsinline', '');
+        v.setAttribute('webkit-playsinline', 'true');
+        v.setAttribute('x5-playsinline', 'true');
+      }
+    });
+
+    const startPlayback = () => {
+      if (video0Ref.current && video0Ref.current.paused) {
+        video0Ref.current.muted = true;
+        video0Ref.current.play().catch(() => {});
+      }
+    };
+
+    // Try autoplaying immediately
+    startPlayback();
+
+    // In case iOS Low Power Mode or Android battery saver blocked autoplay, trigger on first touch/interaction
+    const handleGesture = () => {
+      startPlayback();
+      window.removeEventListener('touchstart', handleGesture);
+      window.removeEventListener('click', handleGesture);
+    };
+
+    window.addEventListener('touchstart', handleGesture, { passive: true, once: true });
+    window.addEventListener('click', handleGesture, { passive: true, once: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleGesture);
+      window.removeEventListener('click', handleGesture);
+    };
   }, []);
 
   // Primary Sections definition with subcategories requested by user
@@ -396,13 +430,25 @@ export default function CustomerView({ products, onAddToCart, API_BASE_URL, open
             </div>
             
             {/* Hero Showcase with Seamless Dual-Buffered Showroom Video */}
-            <div className="hero-showcase">
+            <div 
+              className="hero-showcase" 
+              onClick={() => {
+                if (video0Ref.current && video0Ref.current.paused) {
+                  video0Ref.current.muted = true;
+                  video0Ref.current.play().catch(() => {});
+                }
+              }}
+              style={{ cursor: 'pointer' }}
+            >
               <video 
                 ref={video0Ref}
                 src={STORE_VIDEOS[0].url} 
                 autoPlay 
                 muted 
+                defaultMuted
                 playsInline
+                webkit-playsinline="true"
+                x5-playsinline="true"
                 preload="auto"
                 onTimeUpdate={handleVideo0TimeUpdate}
                 onEnded={transitionToVideo1}
@@ -423,7 +469,10 @@ export default function CustomerView({ products, onAddToCart, API_BASE_URL, open
                 ref={video1Ref}
                 src={STORE_VIDEOS[1].url} 
                 muted 
+                defaultMuted
                 playsInline
+                webkit-playsinline="true"
+                x5-playsinline="true"
                 preload="auto"
                 onTimeUpdate={handleVideo1TimeUpdate}
                 onEnded={transitionToVideo0}
