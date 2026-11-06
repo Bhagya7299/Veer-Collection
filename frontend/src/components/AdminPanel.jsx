@@ -965,22 +965,6 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
                                       <span>{order.customer_email}</span>
                                     </a>
                                   )}
-                                  {order.user_id && (
-                                    <span style={{ 
-                                      display: 'inline-block',
-                                      width: 'fit-content',
-                                      fontSize: '0.68rem', 
-                                      background: 'rgba(212, 175, 55, 0.12)', 
-                                      border: '1px solid rgba(212, 175, 55, 0.3)', 
-                                      color: 'var(--accent-gold)', 
-                                      padding: '0.1rem 0.4rem', 
-                                      borderRadius: '4px',
-                                      marginTop: '0.15rem',
-                                      fontWeight: 600
-                                    }}>
-                                      Member Account #{order.user_id}
-                                    </span>
-                                  )}
                                 </div>
                               </div>
                             </td>
