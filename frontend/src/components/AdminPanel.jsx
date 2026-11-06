@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Package, Edit, Trash2, ShoppingBag, DollarSign, List, Layers, Shield, RefreshCw, Wallet, Check, X } from 'lucide-react';
+import { Plus, Package, Edit, Trash2, ShoppingBag, DollarSign, List, Layers, Shield, RefreshCw, Wallet, Check, X, User, Phone, Mail, MapPin, Calendar, Hash, Search } from 'lucide-react';
 
 export default function AdminPanel({ products, orders, onRefreshData, API_BASE_URL, onBackToStore }) {
   const [adminPassword, setAdminPassword] = useState('');
@@ -26,6 +26,9 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
   const [tempColor, setTempColor] = useState('');
   const [tempSize, setTempSize] = useState('M');
   const [tempQty, setTempQty] = useState('10');
+
+  // Orders search filter state
+  const [orderSearch, setOrderSearch] = useState('');
 
   useEffect(() => {
     // Check if password already stored in sessionStorage
@@ -790,112 +793,315 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
         {/* ======================================================== */}
         {/* TAB 3: CUSTOMER ORDERS LIST */}
         {/* ======================================================== */}
-        {activeTab === 'orders' && (
-          <div className="animate-fade-in">
-            <div className="admin-header-row">
-              <div>
-                <h2 className="font-serif" style={{ fontSize: '2rem' }}>Customer Orders Dashboard</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Manage payments, verify QR details, and process shipping statuses.</p>
-              </div>
-            </div>
+        {activeTab === 'orders' && (() => {
+          const displayedOrders = orders.filter(order => {
+            if (!orderSearch.trim()) return true;
+            const query = orderSearch.toLowerCase().trim();
+            const nameMatch = (order.customer_name || '').toLowerCase().includes(query);
+            const phoneMatch = (order.customer_phone || '').includes(query);
+            const emailMatch = (order.customer_email || '').toLowerCase().includes(query);
+            const idMatch = String(order.id).includes(query);
+            const addressMatch = (order.customer_address || '').toLowerCase().includes(query);
+            return nameMatch || phoneMatch || emailMatch || idMatch || addressMatch;
+          });
 
-            <div className="glass-panel" style={{ padding: '1.5rem' }}>
-              <div className="admin-table-container">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Order Details</th>
-                      <th>Shipping Address</th>
-                      <th>Apparel Purchased</th>
-                      <th>Method & Total</th>
-                      <th>Order Status</th>
-                      <th>Payment Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.length === 0 ? (
+          return (
+            <div className="animate-fade-in">
+              <div className="admin-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div>
+                  <h2 className="font-serif" style={{ fontSize: '2rem' }}>Customer Orders Dashboard</h2>
+                  <p style={{ color: 'var(--text-muted)' }}>Real-time customer order management, direct client contact info, and fulfillment tracking.</p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Search size={15} style={{ position: 'absolute', left: '10px', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                    <input
+                      type="text"
+                      placeholder="Search customer name, phone, order ID..."
+                      value={orderSearch}
+                      onChange={(e) => setOrderSearch(e.target.value)}
+                      className="form-control"
+                      style={{ paddingLeft: '2rem', paddingRight: '0.85rem', width: '280px', fontSize: '0.85rem', background: '#121218' }}
+                    />
+                    {orderSearch && (
+                      <button 
+                        onClick={() => setOrderSearch('')} 
+                        style={{ position: 'absolute', right: '8px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  <button 
+                    onClick={onRefreshData} 
+                    className="btn-secondary" 
+                    style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+                    title="Refresh Orders"
+                  >
+                    <RefreshCw size={15} /> Refresh
+                  </button>
+                </div>
+              </div>
+
+              <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                <div className="admin-table-container">
+                  <table className="admin-table">
+                    <thead>
                       <tr>
-                        <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>
-                          No customer orders placed yet.
-                        </td>
+                        <th style={{ width: '130px' }}>Order ID & Date</th>
+                        <th style={{ minWidth: '220px' }}>Customer Name & Contact</th>
+                        <th style={{ maxWidth: '220px' }}>Shipping Address</th>
+                        <th>Apparel Purchased</th>
+                        <th style={{ width: '150px' }}>Payment & Total</th>
+                        <th style={{ width: '135px' }}>Order Status</th>
+                        <th style={{ width: '115px' }}>Payment Status</th>
                       </tr>
-                    ) : (
-                      orders.map(order => (
-                        <tr key={order.id}>
-                          <td>
-                            <div><strong>Order ID:</strong> #{order.id}</div>
-                            <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}><strong>Name:</strong> {order.customer_name}</div>
-                            <div style={{ fontSize: '0.9rem' }}><strong>Phone:</strong> {order.customer_phone}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                              {new Date(order.created_at).toLocaleString('en-IN')}
-                            </div>
-                          </td>
-                          <td>
-                            <p style={{ fontSize: '0.85rem', maxWidth: '200px', wordBreak: 'break-word', lineHeight: '1.4' }}>
-                              {order.customer_address}
-                            </p>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                              {order.items.map((item, idx) => (
-                                <div key={idx} style={{ fontSize: '0.85rem' }}>
-                                  • {item.name} ({item.color} | {item.size}) x <strong>{item.quantity}</strong>
-                                </div>
-                              ))}
-                            </div>
-                          </td>
-                          <td>
-                            <div style={{ fontWeight: 700, color: 'var(--accent-gold)', marginBottom: '0.25rem' }}>
-                              ₹{order.total_amount.toLocaleString('en-IN')}
-                            </div>
-                            <span className="badge badge-gold" style={{ fontSize: '0.7rem' }}>
-                              {order.payment_method === 'COD' ? 'Cash on Delivery' : 'UPI Payment'}
-                            </span>
-                            {order.payment_ref && (
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                                <strong>Ref:</strong> {order.payment_ref}
-                              </div>
-                            )}
-                          </td>
-                          <td>
-                            <select
-                              value={order.order_status}
-                              onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value, order.payment_status)}
-                              className="form-control"
-                              style={{ width: 'auto', padding: '0.4rem', fontSize: '0.85rem' }}
-                            >
-                              <option value="Received">Received</option>
-                              <option value="Processing">Processing</option>
-                              <option value="Shipped">Shipped</option>
-                              <option value="Delivered">Delivered</option>
-                              <option value="Cancelled">Cancelled</option>
-                            </select>
-                          </td>
-                          <td>
-                            <select
-                              value={order.payment_status}
-                              onChange={(e) => handleUpdateOrderStatus(order.id, order.order_status, e.target.value)}
-                              className="form-control"
-                              style={{ 
-                                width: 'auto', 
-                                padding: '0.4rem', 
-                                fontSize: '0.85rem',
-                                color: order.payment_status === 'Paid' ? '#2ecc71' : '#e74c3c'
-                              }}
-                            >
-                              <option value="Pending">Pending</option>
-                              <option value="Paid">Paid</option>
-                            </select>
+                    </thead>
+                    <tbody>
+                      {displayedOrders.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem' }}>
+                            {orderSearch ? 'No orders match your search criteria.' : 'No customer orders placed yet.'}
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        displayedOrders.map(order => (
+                          <tr key={order.id}>
+                            {/* 1. ORDER ID & DATE */}
+                            <td>
+                              <div style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '0.35rem', 
+                                background: 'rgba(212, 175, 55, 0.08)', 
+                                border: '1px solid rgba(212, 175, 55, 0.3)', 
+                                padding: '0.2rem 0.55rem', 
+                                borderRadius: '6px', 
+                                fontWeight: 700, 
+                                fontSize: '0.9rem', 
+                                color: 'var(--accent-gold)' 
+                              }}>
+                                <Hash size={13} />
+                                <span>#{order.id}</span>
+                              </div>
+                              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <Calendar size={12} />
+                                <span>{new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', paddingLeft: '1.05rem', marginTop: '0.1rem' }}>
+                                {new Date(order.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                              </div>
+                            </td>
+
+                            {/* 2. CUSTOMER NAME & CONTACT (PROMINENT DEDICATED COLUMN) */}
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                                <div style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  minWidth: '40px',
+                                  borderRadius: '50%',
+                                  background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(184, 134, 11, 0.55))',
+                                  border: '1.5px solid var(--accent-gold)',
+                                  color: '#ffffff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: '700',
+                                  fontSize: '1.05rem',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+                                  marginTop: '2px',
+                                  flexShrink: 0
+                                }}>
+                                  {order.customer_name ? order.customer_name.trim().charAt(0).toUpperCase() : 'C'}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                  <div style={{ 
+                                    fontSize: '1.05rem', 
+                                    fontWeight: '700', 
+                                    color: '#ffffff',
+                                    letterSpacing: '0.01em',
+                                    lineHeight: 1.25,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem'
+                                  }}>
+                                    <User size={14} style={{ color: 'var(--accent-gold)', flexShrink: 0 }} />
+                                    <span>{order.customer_name || 'Guest Customer'}</span>
+                                  </div>
+                                  {order.customer_phone && (
+                                    <a 
+                                      href={`tel:${order.customer_phone}`} 
+                                      style={{ 
+                                        fontSize: '0.84rem', 
+                                        color: 'var(--accent-gold)', 
+                                        textDecoration: 'none',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.35rem',
+                                        fontWeight: 500,
+                                        marginTop: '0.1rem'
+                                      }}
+                                      title="Click to call customer"
+                                    >
+                                      <Phone size={12} />
+                                      <span>{order.customer_phone}</span>
+                                    </a>
+                                  )}
+                                  {order.customer_email && (
+                                    <a 
+                                      href={`mailto:${order.customer_email}`}
+                                      style={{ 
+                                        fontSize: '0.78rem', 
+                                        color: 'var(--text-muted)', 
+                                        textDecoration: 'none',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.35rem'
+                                      }}
+                                      title="Click to email customer"
+                                    >
+                                      <Mail size={12} />
+                                      <span>{order.customer_email}</span>
+                                    </a>
+                                  )}
+                                  {order.user_id && (
+                                    <span style={{ 
+                                      display: 'inline-block',
+                                      width: 'fit-content',
+                                      fontSize: '0.68rem', 
+                                      background: 'rgba(212, 175, 55, 0.12)', 
+                                      border: '1px solid rgba(212, 175, 55, 0.3)', 
+                                      color: 'var(--accent-gold)', 
+                                      padding: '0.1rem 0.4rem', 
+                                      borderRadius: '4px',
+                                      marginTop: '0.15rem',
+                                      fontWeight: 600
+                                    }}>
+                                      Member Account #{order.user_id}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* 3. SHIPPING ADDRESS */}
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.35rem', maxWidth: '220px' }}>
+                                <MapPin size={14} style={{ color: 'var(--accent-gold)', flexShrink: 0, marginTop: '2px' }} />
+                                <span style={{ fontSize: '0.85rem', lineHeight: '1.4', wordBreak: 'break-word', color: '#e0e0e0' }}>
+                                  {order.customer_address}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* 4. APPAREL PURCHASED */}
+                            <td>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                {Array.isArray(order.items) && order.items.map((item, idx) => (
+                                  <div key={idx} style={{ fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                    <span style={{ color: '#fff', fontWeight: 600 }}>• {item.name}</span>
+                                    <span style={{ 
+                                      fontSize: '0.72rem', 
+                                      background: 'rgba(255, 255, 255, 0.06)', 
+                                      border: '1px solid rgba(255, 255, 255, 0.12)', 
+                                      padding: '0.1rem 0.4rem', 
+                                      borderRadius: '4px',
+                                      color: '#bbb'
+                                    }}>
+                                      {item.color} | {item.size}
+                                    </span>
+                                    <span style={{ 
+                                      fontSize: '0.72rem', 
+                                      fontWeight: 700, 
+                                      color: 'var(--accent-gold)',
+                                      background: 'rgba(212, 175, 55, 0.12)',
+                                      padding: '0.1rem 0.45rem',
+                                      borderRadius: '4px'
+                                    }}>
+                                      x{item.quantity}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+
+                            {/* 5. PAYMENT & TOTAL */}
+                            <td>
+                              <div style={{ fontWeight: 700, color: 'var(--accent-gold)', fontSize: '1.05rem', marginBottom: '0.25rem' }}>
+                                ₹{Number(order.total_amount).toLocaleString('en-IN')}
+                              </div>
+                              <span className="badge badge-gold" style={{ fontSize: '0.7rem' }}>
+                                {order.payment_method === 'COD' ? 'Cash on Delivery' : order.payment_method === 'WALLET' ? 'Wallet Payment' : 'UPI Payment'}
+                              </span>
+                              {order.wallet_used > 0 && (
+                                <div style={{ fontSize: '0.72rem', color: '#2ecc71', marginTop: '0.2rem' }}>
+                                  Wallet: -₹{order.wallet_used}
+                                </div>
+                              )}
+                              {order.payment_ref && (
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', wordBreak: 'break-all' }}>
+                                  <strong>Ref:</strong> {order.payment_ref}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* 6. ORDER STATUS */}
+                            <td>
+                              <select
+                                value={order.order_status}
+                                onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value, order.payment_status)}
+                                className="form-control"
+                                style={{ 
+                                  width: 'auto', 
+                                  padding: '0.4rem 0.6rem', 
+                                  fontSize: '0.85rem',
+                                  borderRadius: '6px',
+                                  background: '#1a1a24',
+                                  border: '1px solid var(--border-light)',
+                                  fontWeight: 600,
+                                  color: order.order_status === 'Delivered' ? '#2ecc71' : order.order_status === 'Cancelled' ? '#e74c3c' : 'var(--accent-gold)'
+                                }}
+                              >
+                                <option value="Received">Received</option>
+                                <option value="Processing">Processing</option>
+                                <option value="Shipped">Shipped</option>
+                                <option value="Delivered">Delivered</option>
+                                <option value="Cancelled">Cancelled</option>
+                              </select>
+                            </td>
+
+                            {/* 7. PAYMENT STATUS */}
+                            <td>
+                              <select
+                                value={order.payment_status}
+                                onChange={(e) => handleUpdateOrderStatus(order.id, order.order_status, e.target.value)}
+                                className="form-control"
+                                style={{ 
+                                  width: 'auto', 
+                                  padding: '0.4rem 0.6rem', 
+                                  fontSize: '0.85rem',
+                                  borderRadius: '6px',
+                                  background: '#1a1a24',
+                                  border: '1px solid var(--border-light)',
+                                  fontWeight: 700,
+                                  color: order.payment_status === 'Paid' ? '#2ecc71' : '#e74c3c'
+                                }}
+                              >
+                                <option value="Pending">Pending</option>
+                                <option value="Paid">Paid</option>
+                              </select>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
         {/* Wallet Requests Tab */}
         {activeTab === 'wallet' && (
           <div className="admin-content-card">
