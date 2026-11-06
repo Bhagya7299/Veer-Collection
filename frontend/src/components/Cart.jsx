@@ -389,9 +389,16 @@ export default function Cart({ isOpen, onClose, cartItems, onUpdateQuantity, onR
                           </button>
                         </div>
 
-                        <span style={{ fontWeight: 600, color: 'var(--accent-gold)', fontSize: '0.95rem' }}>
-                          ₹{(item.price * item.quantity).toLocaleString('en-IN')}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--accent-gold)', fontSize: '0.95rem' }}>
+                            ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                          </span>
+                          {item.original_price && item.original_price > item.price && (
+                            <span style={{ fontSize: '0.75rem', textDecoration: 'line-through', color: 'var(--text-muted)' }}>
+                              ₹{(item.original_price * item.quantity).toLocaleString('en-IN')}
+                            </span>
+                          )}
+                        </div>
 
                         <button 
                           onClick={() => onRemoveItem(idx)} 

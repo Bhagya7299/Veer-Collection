@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Package, Edit, Trash2, ShoppingBag, DollarSign, List, Layers, Shield, RefreshCw, Wallet, Check, X, User, Phone, Mail, MapPin, Calendar, Hash, Search } from 'lucide-react';
+import { Plus, Package, Edit, Trash2, ShoppingBag, DollarSign, List, Layers, Shield, RefreshCw, Wallet, Check, X, User, Phone, Mail, MapPin, Calendar, Hash, Search, Tag, Percent } from 'lucide-react';
 
 export default function AdminPanel({ products, orders, onRefreshData, API_BASE_URL, onBackToStore }) {
   const [adminPassword, setAdminPassword] = useState('');
@@ -21,6 +21,10 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
   const [prodImage, setProdImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   
+  // Discount states for adding/editing product (removable at any time)
+  const [prodDiscount, setProdDiscount] = useState('');
+  const [hasDiscount, setHasDiscount] = useState(false);
+
   // Variations builder state
   const [variations, setVariations] = useState([]);
   const [tempColor, setTempColor] = useState('');
@@ -182,6 +186,7 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
     formData.append('name', prodName);
     formData.append('description', prodDesc);
     formData.append('price', prodPrice);
+    formData.append('discount_percent', hasDiscount ? (parseFloat(prodDiscount) || 0) : 0);
     formData.append('category', prodCategory);
     if (prodImage) {
       formData.append('image', prodImage);
@@ -230,6 +235,8 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
     setTempColor('');
     setTempSize('M');
     setTempQty('10');
+    setProdDiscount('');
+    setHasDiscount(false);
   };
 
   // Set up product edit state
@@ -241,7 +248,33 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
     setProdCategory(product.category);
     setPreviewUrl(product.image_url ? `${API_BASE_URL}${product.image_url}` : '');
     setVariations(product.stock || []);
+    const discount = product.discount_percent || 0;
+    setProdDiscount(discount > 0 ? discount.toString() : '');
+    setHasDiscount(discount > 0);
     setActiveTab('products'); // Switch view to form
+  };
+
+  // Quick 1-click removal of discount directly from product card/table
+  const handleRemoveDiscountDirectly = async (productId) => {
+    if (!window.confirm('Remove discount from this product and restore regular price?')) return;
+    const effectivePass = adminPassword || sessionStorage.getItem('admin_pass') || 'admin123';
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/products/${productId}/discount`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-password': effectivePass
+        },
+        body: JSON.stringify({ discount_percent: 0 })
+      });
+      if (res.ok) {
+        onRefreshData();
+      } else {
+        alert('Failed to remove discount');
+      }
+    } catch (err) {
+      alert('Error removing discount: ' + err.message);
+    }
   };
 
   // Delete product
@@ -608,6 +641,118 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
                     </div>
                   </div>
 
+                  {/* SPECIAL DISCOUNT OPTION (OPTIONAL & REMOVABLE) */}
+                  <div style={{ 
+                    marginBottom: '1.5rem', 
+                    padding: '1rem', 
+                    background: hasDiscount ? 'rgba(212, 175, 55, 0.08)' : 'rgba(255, 255, 255, 0.02)', 
+                    border: hasDiscount ? '1px solid rgba(212, 175, 55, 0.35)' : '1px dashed var(--border-light)', 
+                    borderRadius: '8px',
+                    transition: 'all 0.3s ease'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', margin: 0, fontWeight: 600, color: '#fff', fontSize: '0.92rem' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={hasDiscount} 
+                          onChange={(e) => {
+                            setHasDiscount(e.target.checked);
+                            if (!e.target.checked) setProdDiscount('');
+                            else if (!prodDiscount) setProdDiscount('20');
+                          }} 
+                          style={{ width: '18px', height: '18px', accentColor: 'var(--accent-gold)', cursor: 'pointer' }}
+                        />
+                        <span>🏷️ Offer Special Discount on this Product</span>
+                      </label>
+                      {hasDiscount && (
+                        <button 
+                          type="button" 
+                          onClick={() => { setHasDiscount(false); setProdDiscount(''); }}
+                          style={{ 
+                            fontSize: '0.8rem', 
+                            color: '#ff7675', 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '0.3rem', 
+                            background: 'rgba(231, 76, 60, 0.1)', 
+                            border: '1px solid rgba(231, 76, 60, 0.3)', 
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: '4px',
+                            cursor: 'pointer' 
+                          }}
+                        >
+                          <X size={14} /> Remove Discount (Restore Full Price)
+                        </button>
+                      )}
+                    </div>
+
+                    {hasDiscount && (
+                      <div className="animate-fade-in" style={{ marginTop: '0.9rem', paddingTop: '0.9rem', borderTop: '1px solid rgba(212, 175, 55, 0.2)' }}>
+                        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                          <div className="form-group" style={{ maxWidth: '170px', margin: 0 }}>
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Discount Percentage (%)</label>
+                            <input 
+                              type="number" 
+                              min="1" 
+                              max="95" 
+                              placeholder="e.g. 20" 
+                              value={prodDiscount} 
+                              onChange={(e) => setProdDiscount(e.target.value)} 
+                              className="form-control"
+                              style={{ fontWeight: 700, color: 'var(--accent-gold)', fontSize: '1rem' }}
+                            />
+                          </div>
+
+                          {/* Quick Presets */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Quick Presets</label>
+                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                              {['10', '15', '20', '25', '30', '50'].map(pct => (
+                                <button
+                                  key={pct}
+                                  type="button"
+                                  onClick={() => setProdDiscount(pct)}
+                                  style={{
+                                    padding: '0.35rem 0.65rem',
+                                    fontSize: '0.78rem',
+                                    borderRadius: '4px',
+                                    border: prodDiscount === pct ? '1px solid var(--accent-gold)' : '1px solid var(--border-light)',
+                                    background: prodDiscount === pct ? 'rgba(212, 175, 55, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                                    color: prodDiscount === pct ? 'var(--accent-gold)' : 'var(--text-muted)',
+                                    cursor: 'pointer',
+                                    fontWeight: 600
+                                  }}
+                                >
+                                  {pct}% OFF
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Live calculation breakdown */}
+                        {prodPrice && parseFloat(prodDiscount) > 0 && (
+                          <div style={{ marginTop: '0.85rem', padding: '0.65rem 0.9rem', background: 'rgba(0, 0, 0, 0.3)', borderRadius: '6px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)' }}>Original MRP: </span>
+                              <span style={{ textDecoration: 'line-through', color: '#999' }}>₹{parseFloat(prodPrice).toLocaleString('en-IN')}</span>
+                            </div>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)' }}>Customer Saves: </span>
+                              <span style={{ color: '#2ecc71', fontWeight: 600 }}>₹{Math.round(parseFloat(prodPrice) * (parseFloat(prodDiscount) / 100)).toLocaleString('en-IN')} ({prodDiscount}% OFF)</span>
+                            </div>
+                            <div>
+                              <span style={{ color: 'var(--text-muted)' }}>Final Store Price: </span>
+                              <span style={{ color: 'var(--accent-gold)', fontWeight: 700, fontSize: '1rem' }}>
+                                ₹{Math.max(1, Math.round(parseFloat(prodPrice) * (1 - parseFloat(prodDiscount) / 100))).toLocaleString('en-IN')}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="form-row">
                     <div className="form-group">
                       <label>Section / Category</label>
@@ -765,18 +910,44 @@ export default function AdminPanel({ products, orders, onRefreshData, API_BASE_U
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <h4 style={{ fontSize: '0.95rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{prod.name}</h4>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.25rem 0' }}>{prod.category}</div>
-                        <div style={{ fontWeight: 700, color: 'var(--accent-gold)', fontSize: '0.95rem' }}>₹{prod.price.toLocaleString('en-IN')}</div>
                         
-                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          {prod.discount_percent > 0 ? (
+                            <>
+                              <span style={{ fontWeight: 700, color: 'var(--accent-gold)', fontSize: '0.95rem' }}>
+                                ₹{Math.max(1, Math.round(prod.price * (1 - prod.discount_percent / 100))).toLocaleString('en-IN')}
+                              </span>
+                              <span style={{ fontSize: '0.78rem', textDecoration: 'line-through', color: 'var(--text-muted)' }}>
+                                ₹{prod.price.toLocaleString('en-IN')}
+                              </span>
+                              <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.35rem', background: 'rgba(46, 204, 113, 0.15)', color: '#2ecc71', borderRadius: '4px', fontWeight: 700, border: '1px solid rgba(46, 204, 113, 0.3)' }}>
+                                {prod.discount_percent}% OFF
+                              </span>
+                            </>
+                          ) : (
+                            <div style={{ fontWeight: 700, color: 'var(--accent-gold)', fontSize: '0.95rem' }}>₹{prod.price.toLocaleString('en-IN')}</div>
+                          )}
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                           <button 
                             onClick={() => startEditProduct(prod)} 
-                            style={{ fontSize: '0.8rem', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                            style={{ fontSize: '0.8rem', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'transparent', border: 'none', cursor: 'pointer' }}
                           >
                             <Edit size={12} /> Edit
                           </button>
+                          {prod.discount_percent > 0 && (
+                            <button
+                              onClick={() => handleRemoveDiscountDirectly(prod.id)}
+                              style={{ fontSize: '0.78rem', color: '#ff7675', display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                              title="Click to remove discount immediately"
+                            >
+                              <X size={12} /> Remove Discount
+                            </button>
+                          )}
                           <button 
                             onClick={() => handleDeleteProduct(prod.id)} 
-                            style={{ fontSize: '0.8rem', color: '#e74c3c', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                            style={{ fontSize: '0.8rem', color: '#e74c3c', display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'transparent', border: 'none', cursor: 'pointer' }}
                           >
                             <Trash2 size={12} /> Delete
                           </button>

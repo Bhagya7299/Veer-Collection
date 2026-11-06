@@ -71,9 +71,13 @@ db.serialize(() => {
       price REAL NOT NULL,
       category TEXT NOT NULL,
       image_url TEXT,
+      discount_percent REAL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Migration: ensure discount_percent column exists in existing products table
+  db.run(`ALTER TABLE products ADD COLUMN discount_percent REAL DEFAULT 0`, () => {});
 
   // Stock table (for track of color, size and quantity)
   db.run(`
@@ -220,18 +224,26 @@ const dbOperations = {
     return product;
   },
 
-  async createProduct(name, description, price, category, image_url) {
+  async createProduct(name, description, price, category, image_url, discount_percent = 0) {
     const result = await dbRun(
-      'INSERT INTO products (name, description, price, category, image_url) VALUES (?, ?, ?, ?, ?)',
-      [name, description, price, category, image_url]
+      'INSERT INTO products (name, description, price, category, image_url, discount_percent) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, description, price, category, image_url, parseFloat(discount_percent) || 0]
     );
     return result.lastID;
   },
 
-  async updateProduct(id, name, description, price, category, image_url) {
+  async updateProduct(id, name, description, price, category, image_url, discount_percent = 0) {
     await dbRun(
-      'UPDATE products SET name = ?, description = ?, price = ?, category = ?, image_url = COALESCE(?, image_url) WHERE id = ?',
-      [name, description, price, category, image_url, id]
+      'UPDATE products SET name = ?, description = ?, price = ?, category = ?, image_url = COALESCE(?, image_url), discount_percent = ? WHERE id = ?',
+      [name, description, price, category, image_url, parseFloat(discount_percent) || 0, id]
+    );
+    return id;
+  },
+
+  async updateProductDiscount(id, discount_percent = 0) {
+    await dbRun(
+      'UPDATE products SET discount_percent = ? WHERE id = ?',
+      [parseFloat(discount_percent) || 0, id]
     );
     return id;
   },

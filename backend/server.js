@@ -307,7 +307,7 @@ app.get('/api/products/:id', async (req, res) => {
 // Uses multer upload.single('image') to handle image uploads
 app.post('/api/products', adminAuth, upload.single('image'), async (req, res) => {
   try {
-    const { name, description, price, category, stockData } = req.body;
+    const { name, description, price, category, stockData, discount_percent } = req.body;
     
     if (!name || !price || !category) {
       return res.status(400).json({ error: 'Name, price, and category are required' });
@@ -316,7 +316,14 @@ app.post('/api/products', adminAuth, upload.single('image'), async (req, res) =>
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
     
     // Create product
-    const productId = await db.createProduct(name, description, parseFloat(price), category, imageUrl);
+    const productId = await db.createProduct(
+      name, 
+      description, 
+      parseFloat(price), 
+      category, 
+      imageUrl, 
+      parseFloat(discount_percent) || 0
+    );
 
     // Save stock data if provided
     let parsedStock = [];
@@ -353,7 +360,7 @@ app.post('/api/products', adminAuth, upload.single('image'), async (req, res) =>
 app.put('/api/products/:id', adminAuth, upload.single('image'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price, category, stockData } = req.body;
+    const { name, description, price, category, stockData, discount_percent } = req.body;
 
     if (!name || !price || !category) {
       return res.status(400).json({ error: 'Name, price, and category are required' });
@@ -362,7 +369,15 @@ app.put('/api/products/:id', adminAuth, upload.single('image'), async (req, res)
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
     
     // Update main product details
-    await db.updateProduct(id, name, description, parseFloat(price), category, imageUrl);
+    await db.updateProduct(
+      id, 
+      name, 
+      description, 
+      parseFloat(price), 
+      category, 
+      imageUrl, 
+      parseFloat(discount_percent) || 0
+    );
 
     // Update stock details if provided
     if (stockData) {
@@ -420,6 +435,19 @@ app.delete('/api/products/:id', adminAuth, async (req, res) => {
 
     await db.deleteProduct(id);
     res.json({ message: 'Product and associated stock deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin: Quick update or remove discount for a product
+app.put('/api/products/:id/discount', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { discount_percent } = req.body;
+    await db.updateProductDiscount(id, parseFloat(discount_percent) || 0);
+    const updatedProduct = await db.getProductById(id);
+    res.json(updatedProduct);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

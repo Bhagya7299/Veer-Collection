@@ -351,10 +351,16 @@ export default function CustomerView({ products, onAddToCart, API_BASE_URL, open
   const handleQuickAddToCart = (e, product) => {
     e.stopPropagation();
     const available = product.stock?.find(s => s.quantity > 0) || product.stock?.[0];
+    const effectivePrice = product.discount_percent > 0 
+      ? Math.max(1, Math.round(product.price * (1 - product.discount_percent / 100))) 
+      : product.price;
+
     onAddToCart({
       product_id: product.id,
       name: product.name,
-      price: product.price,
+      price: effectivePrice,
+      original_price: product.discount_percent > 0 ? product.price : undefined,
+      discount_percent: product.discount_percent || 0,
       image_url: product.image_url,
       color: available ? available.color : 'Standard',
       size: available ? available.size : 'M',
@@ -388,10 +394,16 @@ export default function CustomerView({ products, onAddToCart, API_BASE_URL, open
       return;
     }
 
+    const effectivePrice = selectedProduct.discount_percent > 0 
+      ? Math.max(1, Math.round(selectedProduct.price * (1 - selectedProduct.discount_percent / 100))) 
+      : selectedProduct.price;
+
     onAddToCart({
       product_id: selectedProduct.id,
       name: selectedProduct.name,
-      price: selectedProduct.price,
+      price: effectivePrice,
+      original_price: selectedProduct.discount_percent > 0 ? selectedProduct.price : undefined,
+      discount_percent: selectedProduct.discount_percent || 0,
       image_url: selectedProduct.image_url,
       color: chosenColor,
       size: chosenSize,
@@ -851,9 +863,26 @@ export default function CustomerView({ products, onAddToCart, API_BASE_URL, open
                           <ShoppingBag size={48} color="#333" />
                         </div>
                       )}
-                      {totalStock === 0 && (
+                      {totalStock === 0 ? (
                         <span className="badge badge-danger" style={{ position: 'absolute', top: '1rem', left: '1rem' }}>Sold Out</span>
-                      )}
+                      ) : product.discount_percent > 0 ? (
+                        <span style={{ 
+                          position: 'absolute', 
+                          top: '1rem', 
+                          left: '1rem',
+                          background: 'linear-gradient(135deg, #d4af37, #b8860b)',
+                          color: '#000',
+                          fontWeight: 800,
+                          fontSize: '0.72rem',
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '4px',
+                          letterSpacing: '0.04em',
+                          boxShadow: '0 4px 12px rgba(212, 175, 55, 0.45)',
+                          zIndex: 2
+                        }}>
+                          {product.discount_percent}% OFF
+                        </span>
+                      ) : null}
                     </div>
                     
                     <div className="product-info">
@@ -864,7 +893,18 @@ export default function CustomerView({ products, onAddToCart, API_BASE_URL, open
                       </p>
 
                       <div className="product-meta-row">
-                        <span className="product-price">₹{product.price.toLocaleString('en-IN')}</span>
+                        {product.discount_percent > 0 ? (
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.45rem' }}>
+                            <span className="product-price">
+                              ₹{Math.max(1, Math.round(product.price * (1 - product.discount_percent / 100))).toLocaleString('en-IN')}
+                            </span>
+                            <span style={{ fontSize: '0.82rem', textDecoration: 'line-through', color: 'var(--text-muted)' }}>
+                              ₹{product.price.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="product-price">₹{product.price.toLocaleString('en-IN')}</span>
+                        )}
                         
                         {/* Display color dots */}
                         <div className="color-indicator-dots">
@@ -940,7 +980,30 @@ export default function CustomerView({ products, onAddToCart, API_BASE_URL, open
               <div className="product-detail-info">
                 <span className="badge badge-gold" style={{ alignSelf: 'flex-start' }}>{getProductPrimarySection(selectedProduct)}</span>
                 <h2 className="font-serif" style={{ fontSize: '2rem', marginTop: '0.75rem' }}>{selectedProduct.name}</h2>
-                <span className="product-detail-price">₹{selectedProduct.price.toLocaleString('en-IN')}</span>
+                
+                {selectedProduct.discount_percent > 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', margin: '0.5rem 0 1rem' }}>
+                    <span className="product-detail-price" style={{ margin: 0 }}>
+                      ₹{Math.max(1, Math.round(selectedProduct.price * (1 - selectedProduct.discount_percent / 100))).toLocaleString('en-IN')}
+                    </span>
+                    <span style={{ fontSize: '1.15rem', textDecoration: 'line-through', color: 'var(--text-muted)' }}>
+                      ₹{selectedProduct.price.toLocaleString('en-IN')}
+                    </span>
+                    <span style={{ 
+                      background: 'linear-gradient(135deg, #d4af37, #b8860b)', 
+                      color: '#000', 
+                      fontWeight: 800, 
+                      fontSize: '0.78rem',
+                      padding: '0.2rem 0.6rem',
+                      borderRadius: '4px',
+                      boxShadow: '0 2px 8px rgba(212, 175, 55, 0.3)'
+                    }}>
+                      {selectedProduct.discount_percent}% OFF (SAVE ₹{Math.round(selectedProduct.price * (selectedProduct.discount_percent / 100)).toLocaleString('en-IN')})
+                    </span>
+                  </div>
+                ) : (
+                  <span className="product-detail-price">₹{selectedProduct.price.toLocaleString('en-IN')}</span>
+                )}
                 
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '2rem' }}>
                   {selectedProduct.description || 'Elevate your daily wear with this carefully crafted garment from Veer Garments.'}
